@@ -1,0 +1,8 @@
+langchain
+langgraph
+google-generativeai
+openmc
+numpy
+h5py
+pydantic
+python-dotenv
