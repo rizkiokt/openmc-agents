@@ -1,44 +1,59 @@
-from typing import Dict, Any
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_google_genai import ChatGoogleGenerativeAI
+from utils.objects import DesignSpecification
+from utils.llm import LLM
+from workflows.state import State
+from langchain_community.tools import DuckDuckGoSearchRun
 from langchain_core.output_parsers import PydanticOutputParser
-from pydantic import BaseModel, Field
+import os
+import json
+from datetime import datetime
 
-class DesignSpecification(BaseModel):
-    """Model for reactor design specifications"""
-    reactor_type: str = Field(description="Type of reactor (e.g., BWR, PWR)")
-    fuel_type: str = Field(description="Type of fuel (e.g., MOX, UO2)")
-    core_dimensions: Dict[str, float] = Field(description="Core dimensions in cm")
-    fuel_assembly_layout: Dict[str, Any] = Field(description="Fuel assembly layout specifications")
-    target_parameters: Dict[str, Dict[str, float]] = Field(description="Target performance parameters")
-
-class DesignAgent:
-    def __init__(self):
-        self.llm = ChatGoogleGenerativeAI(model="gemini-pro")
-        self.parser = PydanticOutputParser(pydantic_object=DesignSpecification)
-        
-        self.prompt = ChatPromptTemplate.from_messages([
-            ("system", """You are an expert nuclear reactor designer. Your task is to interpret the user's design 
-            requirements and create a detailed design specification for OpenMC simulation.
+def design_agent(state: State):
+    llm = LLM().llm
+    search_tool = DuckDuckGoSearchRun()
+    llm_with_tools = llm.bind_tools([search_tool])
+    parser = PydanticOutputParser(pydantic_object=DesignSpecification)
+    
+    messages = state["messages"]
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", """You are an expert nuclear reactor designer. Your task is to interpret the user's design 
+        requirements and create a detailed design specification for OpenMC simulation.
+         
+            Use the search_tool to find relevant information.
+            
+            Use the search results and your knowledge to inform your design decisions. Focus on:
+            1. Material specifications (fuel composition, coolant properties)
+            2. Geometry specifications (pin pitch, assembly layout)
+            3. Target performance parameters
             
             {format_instructions}
             """),
-            ("human", "{input}")
+            ("user", """Design request: {messages}
+            
+            """)
         ])
     
-    async def generate_design(self, design_request: str) -> DesignSpecification:
-        """
-        Generate a detailed design specification from a user request.
-        
-        Args:
-            design_request: String describing the desired reactor design
-            
-        Returns:
-            DesignSpecification object containing detailed design parameters
-        """
-        # TODO: Implement the design generation logic using the LLM
-        # This should:
-        # 1. Format the prompt with the design request
-        # 2. Call the LLM
-        # 3. Parse the response into a DesignSpecification
-        pass 
+    chain = prompt | llm_with_tools | parser
+
+    try:
+        design_spec = chain.invoke({
+            "messages": messages,
+            "format_instructions": parser.get_format_instructions()
+        })
+    except Exception as e:
+        print(f"[ERROR] Failed to create design spec: {e}")
+        raise
+
+    # Create the directory if it doesn't exist
+    directory = f"openmc_files/files_{datetime.now().strftime('%Y-%m-%d_%H-%M')}"
+    os.makedirs(directory, exist_ok=True)
+
+    # Save the design specification to a file
+    with open(os.path.join(directory, "design_spec.json"), "w") as f:
+        json.dump(design_spec.model_dump(), f)
+    
+    return {"design_spec": design_spec, "directory": directory}
+
+if __name__ == "__main__":
+    result = design_agent(State(messages="I want a PWR fuel assembly with MOX fuels"))
+    print(result)

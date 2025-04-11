@@ -1,45 +1,70 @@
-from typing import Dict, Any, List
-import openmc
-from pydantic import BaseModel, Field
+from langchain_core.prompts import ChatPromptTemplate
+from utils.llm import LLM
+from workflows.state import State
+from utils.objects import Code
+from langchain_core.output_parsers import PydanticOutputParser
+from utils.code_helpers import store_code
+import os
 
-class GeometrySpecification(BaseModel):
-    """Model for geometry specifications"""
-    core_dimensions: Dict[str, float] = Field(description="Core dimensions in cm")
-    fuel_assembly_layout: Dict[str, Any] = Field(description="Fuel assembly layout specifications")
-    pin_pitch: float = Field(description="Distance between fuel pins in cm")
-    clad_thickness: float = Field(description="Cladding thickness in cm")
-    gap_thickness: float = Field(description="Gap thickness between fuel and cladding in cm")
+def geometry_builder(state: State):
+    llm = LLM().llm
+    parser = PydanticOutputParser(pydantic_object=Code)
+    
+    design_spec = state["design_spec"]
+    materials_code = state["materials_code"]
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", """You are an expert in OpenMC geometry modeling. Your task is to create a Python file that 
+        implements the geometry specification from the design specification.
+        
+        The geometry builder should:
+        1. Create appropriate OpenMC geometry objects (surfaces, cells, universes)
+        2. Implement the assembly layout specified in the design
+        3. Include proper material assignments
+        4. Follow OpenMC best practices for geometry modeling
+        
+        Return the complete Python code that can be directly executed to create the OpenMC geometry.
+         
+        
+        {format_instructions}
+        """),
+        ("user", """Design Specification: {design_spec}
+        Materials Code: {materials_code}
+        Create the OpenMC geometry builder Python code.
+        """)
+    ])
+    
+    chain = prompt | llm | parser
 
-class GeometryBuilder:
-    def __init__(self):
-        self.geometry = None
+    try:
+        geometry_code = chain.invoke({
+            "design_spec": design_spec,
+            "materials_code": materials_code,
+            "format_instructions": parser.get_format_instructions()
+        })
+    except Exception as e:
+        print(f"[ERROR] Failed to generate geometry code: {e}")
+        raise
     
-    def create_geometry(self, spec: GeometrySpecification, materials: Dict[str, openmc.Material]) -> openmc.Geometry:
-        """
-        Create OpenMC geometry from specifications.
-        
-        Args:
-            spec: GeometrySpecification object containing geometry details
-            materials: Dictionary mapping material names to openmc.Material objects
-            
-        Returns:
-            openmc.Geometry object containing the reactor geometry
-        """
-        # TODO: Implement geometry creation logic
-        # This should:
-        # 1. Create fuel pin cell
-        # 2. Create fuel assembly
-        # 3. Create core lattice
-        # 4. Add all cells to the geometry
-        
-        return self.geometry
+    # store the geometry code in the directory
+    store_code(geometry_code, os.path.join(state["directory"], "geometry.py"))
     
-    def save_geometry(self, geometry: openmc.Geometry, filename: str = "geometry.xml"):
-        """
-        Save geometry to an XML file.
-        
-        Args:
-            geometry: openmc.Geometry object to save
-            filename: Name of the output file
-        """
-        geometry.export_to_xml(filename) 
+    return {"geometry_code": geometry_code}
+
+if __name__ == "__main__":
+    # Test with a sample design specification
+    test_spec = dict(
+        reactor_type="BWR",
+        materials=[],
+        assembly={
+            "type": "BWR",
+            "fuel_rods": []
+        }
+    )
+    materials_code = Code(
+        imports="",
+        code="",
+        prefix=""
+    )
+    result = geometry_builder(State(design_spec=test_spec, materials_code=materials_code))
+    print(result)
+

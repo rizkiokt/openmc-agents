@@ -34,9 +34,9 @@ This project implements an agentic workflow system for prototyping nuclear react
 
 ## Usage
 
-1. Set up your Google API key for Gemini:
+1. Set up your Gemini API key:
    ```bash
-   export GOOGLE_API_KEY=your_api_key
+   export GEMINI_API_KEY=your_api_key
    ```
 
 2. Run the workflow:

@@ -24,3 +24,6 @@ numpy, h5py (for data extraction)
 5. Runner Agent – executes OpenMC and monitors output.
 6. Analyzer Agent – reads statepoint.h5 to check k-eff, PPF, etc.
 7. Fixer & Optimizer Agent – modifies input files if targets are not met.
+
+
+Update README.md as needed as well as requirements.txt

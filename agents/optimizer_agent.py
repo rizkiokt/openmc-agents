@@ -2,6 +2,7 @@ from typing import Dict, Any, Optional
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel, Field
+import os
 
 class OptimizationParameters(BaseModel):
     """Model for optimization parameters"""
@@ -14,7 +15,16 @@ class OptimizationParameters(BaseModel):
 
 class OptimizerAgent:
     def __init__(self):
-        self.llm = ChatGoogleGenerativeAI(model="gemini-pro")
+        # Get Gemini API key from environment variable
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            raise ValueError("GEMINI_API_KEY environment variable is not set")
+            
+        self.llm = ChatGoogleGenerativeAI(
+            model="gemini-2.0-flash",
+            google_api_key=api_key,
+            temperature=0.7
+        )
         self.prompt = ChatPromptTemplate.from_messages([
             ("system", """You are an expert nuclear reactor designer. Your task is to optimize 
             reactor parameters to meet performance targets while maintaining safety constraints.

@@ -1,0 +1,13 @@
+Metadata-Version: 2.2
+Name: openmc-agents
+Version: 0.1.0
+Requires-Dist: langchain>=0.1.0
+Requires-Dist: langgraph>=0.0.10
+Requires-Dist: numpy>=1.24.0
+Requires-Dist: h5py>=3.9.0
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: python-dotenv>=1.0.0
+Requires-Dist: duckduckgo-search>=4.1.1
+Requires-Dist: pytest>=7.0.0
+Requires-Dist: pytest-asyncio>=0.21.0
+Dynamic: requires-dist
