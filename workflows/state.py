@@ -1,6 +1,6 @@
 from typing import TypedDict, List
 from utils.objects import DesignSpecification, Code
-
+from utils.objects import RunState
 
 class State(TypedDict):
     messages: List
@@ -14,4 +14,5 @@ class State(TypedDict):
     keff: float
     ppf: float
     results: dict
+    run_state: RunState
 

@@ -1,6 +1,13 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional, Literal, Dict
 
+class RunState(BaseModel):
+    """State object for tracking the progress and results of a reactor design run."""
+    status: Literal["complete", "fail"] = Field(description="Status of the run")
+    code_to_fix: List[str] = Field(description="List of files that need fixing (materials.py, geometry.py, and/or settings.py)")
+    suggestions: List[str] = Field(description="Specific suggestions for fixing the code")
+    error: Optional[str] = Field(description="Error message if any", default=None)
+
 
 class Code(BaseModel):
     """Schema for code solutions to questions about LCEL."""
